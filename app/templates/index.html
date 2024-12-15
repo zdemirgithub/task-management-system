@@ -1,0 +1,70 @@
+<!-- app/templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .task-list { margin-top: 20px; }
+        .task { padding: 10px; margin: 10px 0; border: 1px solid #ddd; }
+        .task.complete { background-color: #d4edda; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Task Management System</h1>
+        <form action="/add_task" method="POST">
+            <input type="text" name="title" placeholder="Task Title" required>
+            <input type="text" name="description" placeholder="Description">
+            <input type="text" name="assigned_to" placeholder="Assigned To">
+            <button type="submit">Add Task</button>
+        </form>
+
+        <div class="task-list">
+            <div v-for="task in tasks" :key="task.id" :class="['task', task.status === 'Complete' ? 'complete' : '']">
+                <h3>{{ task.title }}</h3>
+                <p>{{ task.description }}</p>
+                <p><strong>Assigned to:</strong> {{ task.assigned_to }}</p>
+                <p><strong>Status:</strong> {{ task.status }}</p>
+                <form action="/update_task/{{ task.id }}" method="POST">
+                    <select name="status">
+                        <option value="Pending" :selected="task.status === 'Pending'">Pending</option>
+                        <option value="In Progress" :selected="task.status === 'In Progress'">In Progress</option>
+                        <option value="Complete" :selected="task.status === 'Complete'">Complete</option>
+                    </select>
+                    <button type="submit">Update Status</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var app = new Vue({
+            el: '#app',
+            data: {
+                tasks: {{ tasks|tojson }}
+            },
+            methods: {
+                updateTaskStatus(taskId, status) {
+                    const task = this.tasks.find(task => task.id === taskId);
+                    if (task) task.status = status;
+                }
+            }
+        });
+
+        // Listen for real-time task updates
+        socket.on('new_task', function(data) {
+            app.tasks.push(data);
+        });
+
+        socket.on('task_updated', function(data) {
+            app.updateTaskStatus(data.id, data.status);
+        });
+    </script>
+</body>
+</html>
